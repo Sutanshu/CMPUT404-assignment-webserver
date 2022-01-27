@@ -1,5 +1,6 @@
 #  coding: utf-8
 import socketserver
+import os
 
 # Copyright 2013 Abram Hindle, Eddie Antonio Santos
 #
@@ -27,8 +28,6 @@ import socketserver
 # try: curl -v -X GET http://127.0.0.1:8080/
 
 # Author: Sutanshu Seth
-
-import os
 
 
 def getRequestType(data):

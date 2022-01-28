@@ -49,7 +49,7 @@ def isRequestValid(data):
     """
     Checks for empty request
     """
-    return len(data) > 2
+    return len(data) > 0
 
 
 def isMethodAllowed(data):
@@ -134,8 +134,15 @@ def processGET(data):
     """
     This function processes the GET request.
     Checks if the file requested for is a mimetpye file.
+    Returns a 404 response for files that don't exist,
+    Or Returns 301 for moved files,
+    Otherwise, it returns Success and the corresponding response with the file.
     """
-    renderFile = "www" + getFile(data)
+    incomingFile = getFile(data)
+    currentDirectory = os.path.join(os.getcwd(), "www")
+    absolutePath = os.path.realpath(incomingFile)
+    renderFile = "www" + incomingFile
+
     response = ""
 
     if renderFile[-1] == "/":
@@ -144,10 +151,15 @@ def processGET(data):
         if errorCheck("301", data, renderFile):
             response = getErrorResponse("301")
             return response
-
     contentType = mimetypes.guess_type(renderFile)
 
     try:
+        # Check if the files to be served are only in www directory, if not, don't render
+        # Source: (https://www.geeksforgeeks.org/python-os-path-commonprefix-method/ ,
+        #         https://www.geeksforgeeks.org/python-os-path-realpath-method/)
+        if not os.path.commonprefix([os.path.realpath(renderFile), absolutePath]) != currentDirectory:
+            return getErrorResponse("404")
+
         fileObj = open(renderFile, "r").read().encode("utf-8")
         contentlength = str(len(fileObj))
         fileObj = fileObj.decode("utf-8")
@@ -158,6 +170,7 @@ def processGET(data):
             )
         else:
             # Not serving any non mime type files as per assignment specs
+            # The file isn't a mimetype
             return getErrorResponse("404")
 
         return response

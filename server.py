@@ -117,7 +117,7 @@ def getErrorResponse(code, renderFile=None):
                 renderFile += "/"
                 if "www" in renderFile:
                     renderFile = renderFile[3:]
-        response = f"HTTP/1.1 301 Moved Permanently\r\nServer: Server Yoda's this is\r\nContent-length:0\r\nLocation:http://127.0.0.1:8080{renderFile}\r\nConnection: close"
+        response = f"HTTP/1.1 301 Moved Permanently\r\nServer: Server Yoda's this is\r\nContent-length:0\r\nLocation:http://127.0.0.1:8080{renderFile}\r\nConnection: close\r\n"
         return response
 
     if code == "404":
@@ -126,15 +126,18 @@ def getErrorResponse(code, renderFile=None):
         response = (
             "HTTP/1.1 404 Page Not Found\r\nServer: Server Yoda's this is\r\nContent-length:"
             + str(errorMessageLength)
+            + "\r\nConnection:close\r\n"
             + "\r\nContent-type: text/html\r\n\r\n"
             + errorMessage
-            + "\r\nConnection:close\r\n"
         )
         return response
 
     if code == "400":
-        errorMessage = statusCodes[code]
-        response = "HTTP/1.1 400 Bad Request\r\nServer: Server Yoda's this is\r\nContent-length:0\r\nConnection:close"
+        errorMessage = errorMessage.format(statusCodes[code])
+        response = (
+            "HTTP/1.1 400 Bad Request\r\nServer: Server Yoda's this is\r\nContent-length:0\r\nContent-Type:text/html\r\nConnection:close\r\n\r\n"
+            + errorMessage
+        )
         return response
 
 
@@ -178,7 +181,7 @@ def processGET(data):
 
         if contentType[0]:
             response = (
-                "HTTP/1.1 200 OK\r\nServer: Server Yoda's this is\r\nContent-length:{}\r\nContent-Type:{}\r\n\r\n{}\r\nConnection:close"
+                "HTTP/1.1 200 OK\r\nServer: Server Yoda's this is\r\nContent-length:{}\r\nContent-Type:{}\r\n\r\n{}\r\nConnection:close\r\n"
             ).format(contentlength, contentType[0], fileObj)
         else:
             # Not serving any non mime type files as per assignment specs

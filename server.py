@@ -32,22 +32,39 @@ import mimetypes
 
 
 def getRequestType(data):
+    """
+    Returns the HTTP Method type from the given request
+    """
     return data[0].decode("utf-8")
 
 
 def getFile(data):
+    """
+    Returns the path to the file for the given request
+    """
     return data[1].decode("utf-8")
 
 
 def isRequestValid(data):
-    return len(data) > 2  # Empty request
+    """
+    Checks for empty request
+    """
+    return len(data) > 2
 
 
 def isMethodAllowed(data):
+    """
+    Check if the method is allowed, as per assignment specs, only GET is allowed.
+    Can be easily extended by removing or adding REST Methods to the list below
+    """
     return getRequestType(data) in ["GET"]  # Can extend this for other methods
 
 
 def errorCheck(code, data, dataFile=None):
+    """
+    A switch statement type function to check for error codes.
+    Can be easily extended by adding more error codes and their corresponding checks.
+    """
     specifiedFile = ""
     if dataFile:
         specifiedFile = dataFile
@@ -55,18 +72,25 @@ def errorCheck(code, data, dataFile=None):
         specifiedFile = getFile(data)
 
     if code == "405":
-        return getRequestType(data) in ["GET"]  # Can extend this for other methods
+        # Repeated for code readability, and function purpose
+        return getRequestType(data) in ["GET"]
 
     if code == "404":
+        # Checks if page isn't found as the file wouldn't exist
         return not os.path.exists(specifiedFile)
 
     if code == "301":
+        # Checks if its not 404, so the path exists but the file does not
         if os.path.exists(specifiedFile):
             if not os.path.isfile(specifiedFile):
                 return True
 
 
 def getErrorResponse(code):
+    """
+    Based on the error code, this function returns the response
+    that is sent back to the client.
+    """
     statusCodes = {
         "405": "405 - Method Not Allowed",
         "301": "Moved Permanently",
@@ -107,6 +131,10 @@ def getErrorResponse(code):
 
 
 def processGET(data):
+    """
+    This function processes the GET request.
+    Checks if the file requested for is a mimetpye file.
+    """
     renderFile = "www" + getFile(data)
     response = ""
 

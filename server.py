@@ -28,7 +28,7 @@ import mimetypes
 
 # try: curl -v -X GET http://127.0.0.1:8080/
 
-# Author: Sutanshu Seth. Date last edited: Jan 28, 2022
+# Author: Sutanshu Seth (filling in the boilerplate code to complete assignment). Date last edited: Jan 28, 2022
 
 
 def getRequestType(data):

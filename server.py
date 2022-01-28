@@ -95,6 +95,7 @@ def getErrorResponse(code, renderFile=None):
         "405": "405 - Method Not Allowed",
         "301": "Moved Permanently",
         "404": "Oops, wrong page! We don't have it!",
+        "400": "Bad request",
     }
     errorMessage = "<p1>{}</p1>"
 
@@ -111,13 +112,12 @@ def getErrorResponse(code, renderFile=None):
 
     if code == "301":
         errorMessage = statusCodes[code]
-        errorMessageLength = len(errorMessage.encode("utf-8"))
         if renderFile:
             if not renderFile[-1] == "/":
                 renderFile += "/"
                 if "www" in renderFile:
                     renderFile = renderFile[3:]
-        response = f"HTTP/1.1 301 Moved Permanently\r\nServer: Server Yoda's this is\r\nLocation:http://127.0.0.1:8080{renderFile}\r\nConnection: close\r\n\r\n"
+        response = f"HTTP/1.1 301 Moved Permanently\r\nServer: Server Yoda's this is\r\nContent-length:0\r\nLocation:http://127.0.0.1:8080{renderFile}\r\nConnection: close"
         return response
 
     if code == "404":
@@ -128,7 +128,13 @@ def getErrorResponse(code, renderFile=None):
             + str(errorMessageLength)
             + "\r\nContent-type: text/html\r\n\r\n"
             + errorMessage
+            + "\r\nConnection:close\r\n"
         )
+        return response
+
+    if code == "400":
+        errorMessage = statusCodes[code]
+        response = "HTTP/1.1 400 Bad Request\r\nServer: Server Yoda's this is\r\nContent-length:0\r\nConnection:close"
         return response
 
 
@@ -172,7 +178,7 @@ def processGET(data):
 
         if contentType[0]:
             response = (
-                "HTTP/1.1 200 OK\r\nServer: Server Yoda's this is\r\nContent-length:{}\r\nContent-Type:{}\r\n\r\n{}"
+                "HTTP/1.1 200 OK\r\nServer: Server Yoda's this is\r\nContent-length:{}\r\nContent-Type:{}\r\n\r\n{}\r\nConnection:close"
             ).format(contentlength, contentType[0], fileObj)
         else:
             # Not serving any non mime type files as per assignment specs
@@ -191,7 +197,8 @@ class MyWebServer(socketserver.BaseRequestHandler):
         self.data = self.data.split()
 
         if not isRequestValid(self.data):
-            return
+            errorMessage = getErrorResponse("400")
+            self.request.sendall(bytearray(errorMessage, "utf-8"))
 
         if not isMethodAllowed(self.data):
             errorMessage = getErrorResponse("405")

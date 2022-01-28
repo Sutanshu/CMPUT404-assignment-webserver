@@ -49,7 +49,7 @@ def isRequestValid(data):
     """
     Checks for empty request
     """
-    return len(data) > 2
+    return len(data) > 0
 
 
 def isMethodAllowed(data):
@@ -86,7 +86,7 @@ def errorCheck(code, data, dataFile=None):
                 return True
 
 
-def getErrorResponse(code):
+def getErrorResponse(code, renderFile=None):
     """
     Based on the error code, this function returns the response
     that is sent back to the client.
@@ -102,7 +102,7 @@ def getErrorResponse(code):
         errorMessage = errorMessage.format(statusCodes[code])
         errorMessageLength = len(errorMessage.encode("utf-8"))
         response = (
-            "HTTP/1.1 405 Method Not Allowed\r\nAllow: GET\r\nContent-length:"
+            "HTTP/1.1 405 Method Not Allowed\r\nServer: Server Yoda's this is\r\nAllow: GET\r\nContent-length:"
             + str(errorMessageLength)
             + "\r\nContent-Type: text/html\r\n\r\n"
             + errorMessage
@@ -112,17 +112,19 @@ def getErrorResponse(code):
     if code == "301":
         errorMessage = statusCodes[code]
         errorMessageLength = len(errorMessage.encode("utf-8"))
-        response = (
-            "HTTP/1.1 301 Moved Permanently\r\nLocation: http://127.0.0.1:8080/deep/\r\n"
-            + "\r\nConnection: close\r\n\r\n"
-        )
+        if renderFile:
+            if not renderFile[-1] == "/":
+                renderFile += "/"
+                if "www" in renderFile:
+                    renderFile = renderFile[3:]
+        response = f"HTTP/1.1 301 Moved Permanently\r\nServer: Server Yoda's this is\r\nLocation:http://127.0.0.1:8080{renderFile}\r\nConnection: close\r\n\r\n"
         return response
 
     if code == "404":
         errorMessage = errorMessage.format(statusCodes[code])
         errorMessageLength = len(errorMessage.encode("utf-8"))
         response = (
-            "HTTP/1.1 404 Page Not Found\r\nContent-length:"
+            "HTTP/1.1 404 Page Not Found\r\nServer: Server Yoda's this is\r\nContent-length:"
             + str(errorMessageLength)
             + "\r\nContent-type: text/html\r\n\r\n"
             + errorMessage
@@ -134,30 +136,47 @@ def processGET(data):
     """
     This function processes the GET request.
     Checks if the file requested for is a mimetpye file.
+    Returns a 404 response for files that don't exist,
+    Or Returns 301 for moved files,
+    Otherwise, it returns Success and the corresponding response with the file.
     """
-    renderFile = "www" + getFile(data)
+    incomingFile = getFile(data)
+    currentDirectory = os.path.join(os.getcwd(), "www")
+    absolutePath = os.path.realpath(incomingFile)
+    if "www" not in incomingFile:
+        renderFile = "www" + incomingFile
+    else:
+        renderFile = incomingFile
+    if renderFile[0] == "/":
+        renderFile = renderFile[1:]
     response = ""
 
     if renderFile[-1] == "/":
         renderFile += "index.html"
     else:
         if errorCheck("301", data, renderFile):
-            response = getErrorResponse("301")
+            response = getErrorResponse("301", renderFile)
             return response
-
     contentType = mimetypes.guess_type(renderFile)
 
     try:
+        # Check if the files to be served are only in www directory, if not, don't render
+        # Source: (https://www.geeksforgeeks.org/python-os-path-commonprefix-method/ ,
+        #         https://www.geeksforgeeks.org/python-os-path-realpath-method/)
+        if not os.path.commonprefix([os.path.realpath(renderFile), absolutePath]) != currentDirectory:
+            return getErrorResponse("404")
+
         fileObj = open(renderFile, "r").read().encode("utf-8")
         contentlength = str(len(fileObj))
         fileObj = fileObj.decode("utf-8")
 
         if contentType[0]:
-            response = ("HTTP/1.1 200 OK\r\nContent-length:{}\r\nContent-Type:{}\r\n\r\n{}").format(
-                contentlength, contentType[0], fileObj
-            )
+            response = (
+                "HTTP/1.1 200 OK\r\nServer: Server Yoda's this is\r\nContent-length:{}\r\nContent-Type:{}\r\n\r\n{}"
+            ).format(contentlength, contentType[0], fileObj)
         else:
             # Not serving any non mime type files as per assignment specs
+            # The file isn't a mimetype
             return getErrorResponse("404")
 
         return response

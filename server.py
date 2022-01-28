@@ -1,6 +1,7 @@
 #  coding: utf-8
 import socketserver
 import os
+import mimetypes
 
 # Copyright 2013 Abram Hindle, Eddie Antonio Santos
 #
@@ -27,45 +28,76 @@ import os
 
 # try: curl -v -X GET http://127.0.0.1:8080/
 
-# Author: Sutanshu Seth
+# Author: Sutanshu Seth. Date last edited: Jan 28, 2022
 
 
 def getRequestType(data):
+    """
+    Returns the HTTP Method type from the given request
+    """
     return data[0].decode("utf-8")
 
 
 def getFile(data):
+    """
+    Returns the path to the file for the given request
+    """
     return data[1].decode("utf-8")
 
 
 def isRequestValid(data):
-    return len(data) > 2  # Empty request
+    """
+    Checks for empty request
+    """
+    return len(data) > 2
 
 
 def isMethodAllowed(data):
+    """
+    Check if the method is allowed, as per assignment specs, only GET is allowed.
+    Can be easily extended by removing or adding REST Methods to the list below
+    """
     return getRequestType(data) in ["GET"]  # Can extend this for other methods
 
 
-# TODO: Refactor
-def is404(filePath):
-    return not os.path.exists(filePath)
+def errorCheck(code, data, dataFile=None):
+    """
+    A switch statement type function to check for error codes.
+    Can be easily extended by adding more error codes and their corresponding checks.
+    """
+    specifiedFile = ""
+    if dataFile:
+        specifiedFile = dataFile
+    else:
+        specifiedFile = getFile(data)
 
+    if code == "405":
+        # Repeated for code readability, and function purpose
+        return getRequestType(data) in ["GET"]
 
-def is301(reqFile):
-    # Check for just / specification
-    if reqFile[-1] == "/":
-        return False
-    if os.path.exists(reqFile) and not os.path.isfile(reqFile):
-        return True
+    if code == "404":
+        # Checks if page isn't found as the file wouldn't exist
+        return not os.path.exists(specifiedFile)
+
+    if code == "301":
+        # Checks if its not 404, so the path exists but the file does not
+        if os.path.exists(specifiedFile):
+            if not os.path.isfile(specifiedFile):
+                return True
 
 
 def getErrorResponse(code):
+    """
+    Based on the error code, this function returns the response
+    that is sent back to the client.
+    """
     statusCodes = {
         "405": "405 - Method Not Allowed",
         "301": "Moved Permanently",
         "404": "Oops, wrong page! We don't have it!",
     }
     errorMessage = "<p1>{}</p1>"
+
     if code == "405":
         errorMessage = errorMessage.format(statusCodes[code])
         errorMessageLength = len(errorMessage.encode("utf-8"))
@@ -76,6 +108,7 @@ def getErrorResponse(code):
             + errorMessage
         )
         return response
+
     if code == "301":
         errorMessage = statusCodes[code]
         errorMessageLength = len(errorMessage.encode("utf-8"))
@@ -84,6 +117,7 @@ def getErrorResponse(code):
             + "\r\nConnection: close\r\n\r\n"
         )
         return response
+
     if code == "404":
         errorMessage = errorMessage.format(statusCodes[code])
         errorMessageLength = len(errorMessage.encode("utf-8"))
@@ -97,32 +131,38 @@ def getErrorResponse(code):
 
 
 def processGET(data):
+    """
+    This function processes the GET request.
+    Checks if the file requested for is a mimetpye file.
+    """
     renderFile = "www" + getFile(data)
     response = ""
+
     if renderFile[-1] == "/":
         renderFile += "index.html"
     else:
-        if is301(renderFile):
+        if errorCheck("301", data, renderFile):
             response = getErrorResponse("301")
             return response
+
+    contentType = mimetypes.guess_type(renderFile)
+
     try:
         fileObj = open(renderFile, "r").read().encode("utf-8")
         contentlength = str(len(fileObj))
         fileObj = fileObj.decode("utf-8")
-        if ".html" in renderFile:
-            response = (
-                "HTTP/1.1 200 OK\r\nContent-length:" + contentlength + "\r\nContent-Type: text/html\r\n\r\n" + fileObj
-            )
-        elif ".css" in renderFile:
-            response = (
-                "HTTP/1.1 200 OK\r\nContent-length:" + contentlength + "\r\nContent-Type: text/css\r\n\r\n" + fileObj
+
+        if contentType[0]:
+            response = ("HTTP/1.1 200 OK\r\nContent-length:{}\r\nContent-Type:{}\r\n\r\n{}").format(
+                contentlength, contentType[0], fileObj
             )
         else:
-            # Not serving any file other than html or css as per specs
+            # Not serving any non mime type files as per assignment specs
             return getErrorResponse("404")
+
         return response
     except:
-        if is404(renderFile):
+        if errorCheck("404", data):
             return getErrorResponse("404")
 
 
@@ -133,12 +173,12 @@ class MyWebServer(socketserver.BaseRequestHandler):
 
         if not isRequestValid(self.data):
             return
+
         if not isMethodAllowed(self.data):
             errorMessage = getErrorResponse("405")
             self.request.sendall(bytearray(errorMessage, "utf-8"))
             return
 
-        # Actually handling GET now
         if isMethodAllowed(self.data):
             answer = processGET(self.data)
             self.request.sendall(bytearray(answer, "utf-8"))
